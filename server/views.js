@@ -30,33 +30,30 @@ function canWrite(room, pid, ch) {
 
 // Voice chat. Audio goes through the server, so the server alone decides who hears whom
 // (the Mafia's night talk can never reach the town, not even by a hacked client).
+// The host (a sit-out moderator, or a chosen host who also plays) can always be heard.
+const isHostVoice = (room, pid) => isModerator(room, pid) || (room.settings.hostMode === 'player' && !!room.hostId && room.hostId === pid);
 function voiceOk(room, a, b) { // can speaker a be heard by listener b?
   const g = room.game;
   if (!g || g.phase === 'ended') return true;
-  if (isModerator(room, a) || isModerator(room, b)) return true;
+  if (isHostVoice(room, a)) return true; // the host is always heard by everyone
+  // Night and verdict: only the host talks. Players talk during the day discussion and voting.
+  if (g.phase === 'night' || g.phase === 'verdict') return false;
+  if (isModerator(room, b)) return true;
   const pa = g.players[a]; const pb = g.players[b];
   if (!pb) return true; // spectators hear everything (like they read every chat)
   const ghostA = !pa || !pa.alive; const ghostB = !pb.alive;
-  if (g.phase === 'night') {
-    if (!ghostA && !ghostB && pa.team === 'mafia' && pb.team === 'mafia') return true;
-    const medA = !ghostA && pa.role === 'medium'; const medB = !ghostB && pb.role === 'medium';
-    return (ghostA || medA) && (ghostB || medB) && (ghostA || ghostB);
-  }
   if (ghostA) return ghostB;
   return pa.silencedDay !== g.round;
 }
 function voiceHint(room, pid) {
   const g = room.game;
   if (!g || g.phase === 'ended') return { can: true, text: 'Everyone hears you' };
-  if (isModerator(room, pid)) return { can: true, text: 'You are the host: everyone hears you' };
+  if (isHostVoice(room, pid)) return { can: true, text: '🎙️ You are the host: everyone hears you' };
+  if (g.phase === 'night') return { can: false, text: '🌙 Night: only the host talks now' };
+  if (g.phase === 'verdict') return { can: false, text: '⚖️ Verdict: only the host talks now' };
   const p = g.players[pid];
   if (!p) return { can: true, text: 'Only the dead & spectators hear you' };
   if (!p.alive) return { can: true, text: '💀 Only the dead & spectators hear you' };
-  if (g.phase === 'night') {
-    if (p.team === 'mafia') return { can: true, text: '🔪 Only the Mafia hears you' };
-    if (p.role === 'medium') return { can: true, text: '🔮 The dead hear you' };
-    return { can: false, text: '🌙 Night: you are asleep, nobody hears you' };
-  }
   if (p.silencedDay === g.round) return { can: false, text: '🤐 You are silenced today' };
   return { can: true, text: '☀️ Everyone hears you' };
 }

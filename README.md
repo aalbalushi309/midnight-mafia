@@ -6,7 +6,7 @@ An online Mafia party game for you and your friends. Everyone plays on their own
 - 26 roles across Town, Mafia and Neutral, dealt at random or picked by the host
 - The group votes for a host, or the game runs itself on timers
 - Play or spectate, with drop-out recovery and rejoining
-- Live voice chat that follows the game rules (Mafia-only at night)
+- Live voice chat that follows the game rules (only the host talks at night)
 - Chat with stickers, pictures and voice messages
 - Phone-first design with bottom tabs, vibration and keep-awake
 - A secret x-ray mode that only the person with the key can use
@@ -125,7 +125,8 @@ Tap **🎙️ Join voice**, then **Allow mic**.
 - 🎤 mutes and unmutes you.
 - 🎚️ sets how loud you need to talk before your mic turns on: Low for a noisy room, High if your voice isn't picked up.
 - **The game decides who hears whom:**
-  - At night, only the Mafia hear each other.
+  - At night and during the verdict, only the host talks. Everyone else is muted (the Mafia can still plot in their text chat).
+  - During the day discussion and voting, every living player can talk.
   - The dead and spectators talk among themselves.
   - A silenced player can't be heard that day.
 
