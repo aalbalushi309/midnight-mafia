@@ -132,6 +132,8 @@ Tap **🎙️ Join voice**, then **Allow mic**.
 
 The voice goes through the server, so it works on any network. On laptops, use headphones to avoid echo.
 
+**How many people:** voice is compressed (64 kbit/s per speaker, sent in 80 ms chunks). On a home computer, 15 people **all talking at once** needs about 14 Mbit/s of upload and half of one CPU core. Normal games, where people take turns, need far less.
+
 ## 💬 Chat extras
 
 - 😀 **Stickers:** 20 Mafia stickers (SUS, LIAR, Trust me, RIP…)

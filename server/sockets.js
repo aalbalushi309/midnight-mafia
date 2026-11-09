@@ -345,18 +345,21 @@ function attachSockets(io) {
     // ---- Voice ----
     socket.on('voice:join', guard(() => { const c = ctx(); if (!c) return 'Join a room first.'; socket.data.voice = true; broadcast(c.room); }));
     socket.on('voice:leave', guard(() => { socket.data.voice = false; const c = ctx(); if (c) broadcast(c.room); }));
-    // One small audio packet (~40 ms of speech). Only sent while someone is actually talking.
+    // One small audio packet (~80 ms of speech). Only sent while someone is actually talking.
     socket.on('v', (buf) => {
       if (!socket.data.voice || !(buf instanceof Buffer) || buf.length > 4000) return;
       const now = Date.now(); // simple flood guard: ~60 packets a second max
       if (now - (socket.data.vWin || 0) > 1000) { socket.data.vWin = now; socket.data.vCount = 0; }
       if (++socket.data.vCount > 60) return;
       const c = ctx(); if (!c) return; const { room, pid } = c;
+      const to = [];
       for (const id of io.sockets.adapter.rooms.get(room.code) || []) {
         const s = io.sockets.sockets.get(id);
         if (!s || !s.data.voice || s.data.pid === pid || s.data.room !== room.code) continue;
-        if (voiceOk(room, pid, s.data.pid)) s.volatile.emit('v', pid, buf);
+        if (voiceOk(room, pid, s.data.pid)) to.push(id);
       }
+      // packaged once and sent to everyone who may hear it (much lighter than one send per listener)
+      if (to.length) io.to(to).volatile.emit('v', pid, buf);
     });
 
     // ---- The secret x-ray ----

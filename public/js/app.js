@@ -173,10 +173,10 @@
   // when you stop). Audio goes through the game server, which decides who hears
   // whom: at night only the Mafia hear each other, the dead talk among themselves, etc.
   // =====================================================================
-  const RATE = 16000, FRAME = 640; // 40 ms packets
+  const RATE = 16000, FRAME = 640; // mic is checked every 40 ms; sound is sent in 80 ms packets
   const SENS = { 1: ['Low', 5, 0.03], 2: ['Normal', 3, 0.014], 3: ['High', 2, 0.006] }; // label, × noise floor, minimum level
   const V = { on: false, ctx: null, stream: null, src: null, node: null, out: null, muted: false, talking: false, openUntil: 0,
-    level: 0, floor: 0.006, sens: +(store.get('mm_sens') || 2) || 2, prev: null, peers: {}, heard: {} };
+    level: 0, floor: 0.006, sens: +(store.get('mm_sens') || 2) || 2, prev: null, peers: {}, heard: {}, q: [], enc: { pred: 0, idx: 0 } };
   const WORKLET = `class Cap extends AudioWorkletProcessor {
     constructor(){ super(); this.r = sampleRate / ${RATE}; this.pos = 0; this.lp = 0; this.last = 0; this.buf = new Float32Array(${FRAME}); this.n = 0; }
     process(inputs){
@@ -194,9 +194,38 @@
     }
   }
   registerProcessor('mm-cap', Cap);`;
-  const LN256 = Math.log(256);
-  const muEnc = (pcm) => { const u = new Uint8Array(pcm.length); for (let i = 0; i < pcm.length; i++) { const x = Math.max(-1, Math.min(1, pcm[i])); const m = Math.log1p(255 * Math.abs(x)) / LN256; u[i] = Math.round((x < 0 ? -m : m) * 127) + 128; } return u; };
-  const muDec = (u) => { const f = new Float32Array(u.length); for (let i = 0; i < u.length; i++) { const m = (u[i] - 128) / 127; f[i] = Math.sign(m) * Math.expm1(Math.abs(m) * LN256) / 255; } return f; };
+  // ---- Voice compression: IMA ADPCM, 4 bits per sample (half the size of the old 8-bit format).
+  // Packet = [predictor int16][step index][0] + 2 samples per byte. Each packet carries its own
+  // starting state, so a lost packet never garbles the next one.
+  const ADPCM_IDX = [-1, -1, -1, -1, 2, 4, 6, 8, -1, -1, -1, -1, 2, 4, 6, 8];
+  const ADPCM_STEP = [7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66, 73, 80, 88, 97, 107, 118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408, 449, 494, 544, 598, 658, 724, 796, 876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066, 2272, 2499, 2749, 3024, 3327, 3660, 4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767];
+  const adpcmStep = (st, nib) => {
+    let step = ADPCM_STEP[st.idx]; let diff = step >> 3;
+    if (nib & 4) diff += step; if (nib & 2) diff += step >> 1; if (nib & 1) diff += step >> 2;
+    st.pred = Math.max(-32768, Math.min(32767, st.pred + (nib & 8 ? -diff : diff)));
+    st.idx = Math.max(0, Math.min(88, st.idx + ADPCM_IDX[nib]));
+  };
+  function adpcmEnc(pcm, st) {
+    const out = new Uint8Array(4 + Math.ceil(pcm.length / 2));
+    out[0] = st.pred & 255; out[1] = (st.pred >> 8) & 255; out[2] = st.idx;
+    for (let i = 0; i < pcm.length; i++) {
+      const s = Math.max(-32768, Math.min(32767, Math.round(pcm[i] * 32767)));
+      let diff = s - st.pred; let nib = 0; if (diff < 0) { nib = 8; diff = -diff; }
+      let step = ADPCM_STEP[st.idx];
+      if (diff >= step) { nib |= 4; diff -= step; } step >>= 1;
+      if (diff >= step) { nib |= 2; diff -= step; } step >>= 1;
+      if (diff >= step) nib |= 1;
+      adpcmStep(st, nib);
+      out[4 + (i >> 1)] |= i & 1 ? nib << 4 : nib;
+    }
+    return out;
+  }
+  function adpcmDec(u) {
+    const st = { pred: (u[0] | (u[1] << 8)) << 16 >> 16, idx: Math.min(88, u[2]) };
+    const n = (u.length - 4) * 2; const f = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const b = u[4 + (i >> 1)]; adpcmStep(st, i & 1 ? b >> 4 : b & 15); f[i] = st.pred / 32768; }
+    return f;
+  }
 
   // Must run inside a tap (phones only allow sound to start from a tap)
   function primeAudio() {
@@ -308,7 +337,7 @@
     V.on = false; V.talking = false;
     if (!quiet) socket.emit('voice:leave');
     if (V.mic) V.mic.close();
-    V.mic = V.stream = null; V.peers = {}; V.heard = {};
+    V.mic = V.stream = null; V.peers = {}; V.heard = {}; V.q = [];
     renderVoice();
   }
 
@@ -325,22 +354,30 @@
     V.floor = Math.max(0.002, Math.min(0.05, V.floor));
     const allowed = talking && !V.muted && S?.voice?.can;
     if (allowed) {
-      if (!V.talking && V.prev) socket.volatile.emit('v', muEnc(V.prev).buffer); // don't cut off the first syllable
-      socket.volatile.emit('v', muEnc(pcm).buffer);
-    }
+      if (!V.talking && V.prev) V.q.push(V.prev); // don't cut off the first syllable
+      V.q.push(pcm);
+      if (V.q.length >= 2) sendVoice(); // 2 × 40 ms = one 80 ms packet
+    } else if (V.q.length) sendVoice(); // finished talking: send what's left
     V.prev = pcm;
     if (allowed !== V.talking) { V.talking = allowed; paintSpeaking(); }
   }
 
+  function sendVoice() {
+    const n = V.q.reduce((a, f) => a + f.length, 0); const pcm = new Float32Array(n);
+    let o = 0; for (const f of V.q) { pcm.set(f, o); o += f.length; }
+    V.q = [];
+    socket.volatile.emit('v', adpcmEnc(pcm, V.enc).buffer);
+  }
+
   // Someone else's voice arrives: queue it a tiny bit ahead so it plays smoothly.
   socket.on('v', (pid, data) => {
-    if (!V.on || !V.ctx || !data) return;
-    const pcm = muDec(new Uint8Array(data));
+    if (!V.on || !V.ctx || !data || data.byteLength < 6) return;
+    const pcm = adpcmDec(new Uint8Array(data));
     const buf = V.ctx.createBuffer(1, pcm.length, RATE); buf.getChannelData(0).set(pcm);
     const src = V.ctx.createBufferSource(); src.buffer = buf; src.connect(V.out);
     const p = V.peers[pid] || (V.peers[pid] = { t: 0 });
     const now = V.ctx.currentTime;
-    if (p.t < now + 0.02 || p.t > now + 0.6) p.t = now + 0.12;
+    if (p.t < now + 0.02 || p.t > now + 0.7) p.t = now + 0.16; // small cushion so 80 ms packets play smoothly
     src.start(p.t); p.t += buf.duration;
     const fresh = !V.heard[pid] || Date.now() - V.heard[pid] > 400;
     V.heard[pid] = Date.now();

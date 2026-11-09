@@ -10,7 +10,7 @@ const newCode = () => { let c; do { c = Array.from({ length: 4 }, () => 'ABCDEFG
 function defaultSettings() {
   return {
     hostMode: 'player',    // 'player' = a person moderates & doesn't play; 'auto' = no moderator, the game runs itself
-    maxPlayers: 12,
+    maxPlayers: 15,
     mafiaCount: 2,
     roles: { detective: 1, doctor: 1 },
     assignMode: 'random',  // 'random' | 'manual'
