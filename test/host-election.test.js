@@ -28,6 +28,14 @@ run(async () => {
   ok(!!g.me?.role, 'the host got a role of their own');
   ok(!g.host, 'the playing host does not get the secret dashboard');
   ok(g.players.length === 6, 'all 6 players are in the game');
+  const maf = cs.find((c) => c !== host && c.view.game.me?.team === 'mafia');
+  if (maf) {
+    await maf.emit('chat', { channel: 'mafia', text: 'plan for tonight' }); await sleep(150);
+    ok(host.view.chat.mafia?.some((m) => m.text === 'plan for tonight'), 'the host can read the Mafia chat');
+    if (host.view.game.me.team !== 'mafia') ok(!host.view.canWrite.mafia, 'a host who is not Mafia can read it but not write in it');
+    const townie = cs.find((c) => c !== host && c.view.game.me?.team !== 'mafia');
+    ok(!townie.view.chat.mafia, 'ordinary town players still cannot see the Mafia chat');
+  }
 
   let loops = 0;
   while (host.view.game.phase !== 'ended' && loops++ < 40) {

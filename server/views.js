@@ -13,7 +13,7 @@ function canRead(room, pid, ch) {
   if (!g) return false;
   if (g.phase === 'ended' || isModerator(room, pid)) return true;
   const p = g.players[pid]; if (!p) return true; // spectators read every channel
-  if (ch === 'mafia') return p.team === 'mafia';
+  if (ch === 'mafia') return p.team === 'mafia' || isHostVoice(room, pid); // the host can always read the Mafia chat
   if (ch === 'dead') return !p.alive || (p.role === 'medium' && g.phase === 'night');
   return false;
 }
