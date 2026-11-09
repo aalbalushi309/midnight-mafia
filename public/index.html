@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+  <title>Midnight Mafia</title>
+  <meta name="theme-color" content="#0a0a14" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Mafia" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="assets/icon.svg" />
+  <link rel="preload" href="assets/fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="phase-lobby">
+  <div class="sky" aria-hidden="true"></div>
+  <div id="top"></div>
+  <div id="voiceBar" class="voice-bar hidden"></div>
+  <div id="shell">
+    <div id="app"></div>
+    <!-- The chat never gets redrawn with the rest of the page, so typing and scrolling are never interrupted -->
+    <div id="chatDock" class="panel chat hidden" data-m="chat">
+      <div class="chat-tabs" id="chatTabs"></div>
+      <div class="chat-body">
+        <div class="chat-msgs" id="chatMsgs"></div>
+        <button id="chatNew" class="chat-new hidden" type="button">⬇ New messages</button>
+      </div>
+      <div id="chatTray" class="chat-tray hidden"></div>
+      <form id="chatForm" class="chat-form" autocomplete="off">
+        <button type="button" class="cbtn" data-ctool="sticker" title="Stickers" aria-label="Stickers">😀</button>
+        <button type="button" class="cbtn" data-ctool="photo" title="Send a picture" aria-label="Send a picture">🖼️</button>
+        <input id="chatInput" maxlength="300" placeholder="Say something…" enterkeyhint="send" autocomplete="off" />
+        <button type="button" class="cbtn" data-ctool="rec" title="Record a voice message" aria-label="Record a voice message">🎤</button>
+        <button class="btn small" type="submit">Send</button>
+      </form>
+      <!-- picks a picture from the gallery only; the page never opens the camera -->
+      <input type="file" id="photoIn" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
+    </div>
+  </div>
+  <div id="navSlot"></div>
+
+  <div id="modal" class="modal hidden"></div>
+  <div id="toasts"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="shared/roles.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

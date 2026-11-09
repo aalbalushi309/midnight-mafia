@@ -1,0 +1,16 @@
+# One-click setup for Render (https://render.com): New → Blueprint → pick this repository.
+services:
+  - type: web
+    name: midnight-mafia
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Your secret x-ray key. Render asks you to type it in when you create the service.
+      - key: CHEAT_KEY
+        sync: false

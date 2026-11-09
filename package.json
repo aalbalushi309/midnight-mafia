@@ -1,0 +1,22 @@
+{
+  "name": "midnight-mafia",
+  "version": "1.0.0",
+  "description": "Online Mafia party game for you and your friends: secret roles, voice chat, and a phone-friendly UI.",
+  "main": "server/index.js",
+  "private": true,
+  "scripts": {
+    "start": "node server",
+    "dev": "node --watch server",
+    "test": "node test/run-all.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.1"
+  }
+}
