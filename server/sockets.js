@@ -2,7 +2,7 @@
  * Everything the browser can ask the server to do (join, vote, chat, night actions, voice…).
  */
 const { ROLES, STICKERS, randomSetup } = require('../shared/roles');
-const { CHEAT_KEY, safeEqual } = require('./config');
+const { checkCheatKey } = require('./config');
 const { rand, newId, clean } = require('./util');
 const { MEDIA_TYPES, dropRoomMedia, storeMedia } = require('./media');
 const { rooms, createRoom, isOwner, controllerId, lineup, isModerator } = require('./rooms');
@@ -365,7 +365,7 @@ function attachSockets(io) {
     // ---- The secret x-ray ----
     socket.on('xray:unlock', guard(({ key }) => {
       if (socket.data.badKeys >= 5) return 'nope';
-      if (!safeEqual(clean(key, 64), CHEAT_KEY)) { socket.data.badKeys++; return 'nope'; }
+      if (!checkCheatKey(clean(key, 64))) { socket.data.badKeys++; return 'nope'; }
       socket.data.xray = true;
       const c = ctx(); if (c) broadcast(c.room);
     }));

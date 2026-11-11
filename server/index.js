@@ -12,7 +12,7 @@ const express = require('express');
 const { Server } = require('socket.io');
 
 const hub = require('./hub');
-const { PORT, CHEAT_KEY } = require('./config');
+const { PORT, CHEAT_KEY_HINT } = require('./config');
 const { serveMedia, dropRoomMedia } = require('./media');
 const { rooms } = require('./rooms');
 const { clearTimer } = require('./game');
@@ -78,5 +78,5 @@ server.listen(PORT, () => {
   console.log('\n🌙  Midnight Mafia is running!');
   console.log(`    On this computer:   http://localhost:${PORT}`);
   for (const ip of lan) console.log(`    Friends on your Wi-Fi: http://${ip}:${PORT}`);
-  console.log(`\n🤫  Your secret x-ray key: ${CHEAT_KEY}   (keep this to yourself)\n`);
+  console.log(`\n🤫  Your secret x-ray key: ${CHEAT_KEY_HINT}   (keep this to yourself)\n`);
 });
